@@ -1,0 +1,115 @@
+----------------------------------------------------------------------------------------------------------------------------------
+      name:  <unnamed>
+       log:  c:anon.log
+  log type:  text
+ opened on:  12 Nov 2020, 15:25:36
+
+. ************************************************
+. /* Monte Carlo for p-Value Interpretation*/
+. *************************************************
+.         
+. clear
+
+. set seed 72779
+
+. program drop _all
+
+. program mc
+  1. version 15.1
+  2. 
+. /* Create datasets that have 10,000 observations for each regression */ 
+. set obs 10000
+  3. 
+. /* Generate a random dependent variable with a mean of 200, variance of 4. */
+. 
+. gen y= rnormal(200, 4)
+  4. 
+. /* Generate a random independent variable with a mean of 30, variance of 6. */
+. 
+. gen x= rnormal(30, 6) 
+  5. 
+. /* Regress y on x. */
+. 
+. reg y x
+  6. 
+. 
+. drop y x 
+  7. end
+
+. 
+. /* Run the Monte Carlo 1,000 times */
+. 
+. simulate _b _se, reps(1000) nodots: mc
+
+      command:  mc
+
+
+. 
+. /* Calculate the test statistics associated with each regression. The test 
+> statistic is the coefficient estimate (i.e., the beta_hat) divided by the 
+> standard error of the coefficient. You would see both of these numbers in the 
+> regression output for each of the individual regressions. */ 
+. 
+. gen tstat1= _b_x /_se_x
+
+. summ tstat1
+
+    Variable |        Obs        Mean    Std. Dev.       Min        Max
+-------------+---------------------------------------------------------
+      tstat1 |      1,000   -.0404405    1.021395  -3.853802   2.905287
+
+. 
+. /* Above you can see that the mean test statistic is close to 0. This is what 
+> we would expect because we know y and x aren't related. They are both random. 
+> Our regressions are typically resulting in small test statistics and, 
+> accordingly, large p-values. That is good, but just by chance there are some 
+> large positive and large negative test statistics, too. */
+. 
+. /* Next, we apply the absolute value transformation to the test statistics so 
+> that we can see the number that are large enough, in an absolute value sense, to 
+> reject the null hypothesis that the beta_hat coefficient estimate from the 
+> regression is larger the critical value at the .05 significance level. This 
+> is just done to simplify the code. We could also look for negative values
+> that are smaller than the negative critical values in addition to the positive
+> test statistics that are larger than the positive critical values, but this 
+> is a short cut to simplify the code. */ 
+. 
+. replace tstat1= abs(tstat1)
+(512 real changes made)
+
+. 
+. /* Generate a variable equal to the .05 critical value for the test statistic,
+> which we know follows a t-distribution. While we are running the Monte Carlo
+> 1,000 times, the underlying dataset has 10,000 observations. We use that and 
+> the associated degrees of freedom based on the model to find the critical 
+> values. We are using a two-sided test here, so there is .025 in each tail
+> of the distribution and we have 10,000 observations and two parameters we 
+> estimated beta_0 for the intercept and beta_1 for the slope parameter. */ 
+. 
+. gen cv= invttail(9998,.025)
+
+. di cv 
+1.9602013
+
+. 
+. /* You can see above that the critical value is approximately 1.96. */ 
+. 
+. count if tstat1 >=cv
+  53
+
+. 
+. 
+. /* And there are 53 test statistics, out of the 1,000 test statistics from the
+> 1,000 regressions, where the absolute value of the test statistics are larger
+> than the .05 critical value purely by chance. This lines up with what we would
+> expect theoretically. At the .05 level we are seeing .053 null hypothesis 
+> rejections, where the null hypthesis is that beta_hat =0, 5% of the time. */ 
+. 
+. 
+. 
+. log close 
+      name:  <unnamed>
+       log:  anon.log
+  log type:  text
+ closed on:  12 Nov 2020, 15:25:42
+----------------------------------------------------------------------------------------------------------------------------------
